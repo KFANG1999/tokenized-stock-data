@@ -1,10 +1,10 @@
-# 每 10 分钟在云端采集一次股票代币价格，结果提交回本仓库的 data/ 目录
+# 备用采集：手动在网页上点击运行一次，结果提交回本仓库的 data/ 目录
+# 日常的每 10 分钟采集由 Vultr 服务器上的 cron 负责（见 server/），
+# GitHub 免费定时触发经常被推迟或丢弃，所以这里不再设置 schedule
 name: collect
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"   # UTC 时间；GitHub 高峰期可能延迟几分钟
-  workflow_dispatch:          # 允许在网页上手动点击运行
+  workflow_dispatch:
 
 permissions:
   contents: write
