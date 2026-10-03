@@ -4,6 +4,7 @@
   token_hourly.csv  每个主要交易池过去约 6 个月的每小时 K 线（GeckoTerminal 免费接口的上限）
   stock_hourly.csv  每只股票过去 2 年的每小时 K 线（只含常规交易时段）
   stock_daily.csv   每只股票过去 2 年的每日开盘 / 收盘价
+  btc_hourly.csv    比特币过去 2 年的每小时 K 线
 
 用法：python analysis/backfill.py
 重新运行会覆盖旧文件；大约需要 10 分钟（免费接口每分钟最多约 30 次请求）。
@@ -108,6 +109,8 @@ for s in CONFIG["stocks"]:
     hourly.append(yahoo(s["ticker"], "1h", "730d"))
     daily.append(yahoo(s["ticker"], "1d", "2y"))
     time.sleep(1)
+btc_h = yahoo("BTC-USD", "1h", "730d")   # 比特币 24 小时交易，用作周末的共同因素控制变量
+btc_h = btc_h[btc_h.ts_utc.dt.minute == 0]   # 去掉最后一根还没走完的 K 线
 stock_h = pd.concat(hourly, ignore_index=True)
 stock_d = pd.concat(daily, ignore_index=True)
 # 日线的时间戳是纽约时间当天开盘时刻，转成交易日期更好用
@@ -118,6 +121,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 tok.to_csv(OUT / "token_hourly.csv", index=False)
 stock_h.to_csv(OUT / "stock_hourly.csv", index=False)
 stock_d.to_csv(OUT / "stock_daily.csv", index=False)
+btc_h.to_csv(OUT / "btc_hourly.csv", index=False)
 print(f"\n代币小时线：{len(tok):,} 行，{tok.ts_utc.min():%Y-%m-%d} 到 {tok.ts_utc.max():%Y-%m-%d}")
 print(f"股票小时线：{len(stock_h):,} 行；股票日线：{len(stock_d):,} 行")
 print(f"已保存到 {OUT.relative_to(REPO)}")
