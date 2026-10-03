@@ -5,6 +5,7 @@
   stock_hourly.csv  每只股票过去 2 年的每小时 K 线（只含常规交易时段）
   stock_daily.csv   每只股票过去 2 年的每日开盘 / 收盘价
   btc_hourly.csv    比特币过去 2 年的每小时 K 线
+  dividends.csv     每只股票过去 2 年的除息日和每股股息
 
 用法：python analysis/backfill.py
 重新运行会覆盖旧文件；大约需要 10 分钟（免费接口每分钟最多约 30 次请求）。
@@ -109,6 +110,14 @@ for s in CONFIG["stocks"]:
     hourly.append(yahoo(s["ticker"], "1h", "730d"))
     daily.append(yahoo(s["ticker"], "1d", "2y"))
     time.sleep(1)
+def dividends(ticker):
+    """除息日和每股股息。除息日开盘价会机械性下跌，回归时要剔除"""
+    data = get_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=2y&events=div")
+    events = data["chart"]["result"][0].get("events", {}).get("dividends", {})
+    return pd.DataFrame([{"ticker": ticker, "ex_date": pd.to_datetime(e["date"], unit="s", utc=True)
+                          .tz_convert("America/New_York").date(), "amount": e["amount"]} for e in events.values()])
+
+divs = pd.concat([dividends(s["ticker"]) for s in CONFIG["stocks"]], ignore_index=True)
 btc_h = yahoo("BTC-USD", "1h", "730d")   # 比特币 24 小时交易，用作周末的共同因素控制变量
 btc_h = btc_h[btc_h.ts_utc.dt.minute == 0]   # 去掉最后一根还没走完的 K 线
 stock_h = pd.concat(hourly, ignore_index=True)
@@ -122,6 +131,7 @@ tok.to_csv(OUT / "token_hourly.csv", index=False)
 stock_h.to_csv(OUT / "stock_hourly.csv", index=False)
 stock_d.to_csv(OUT / "stock_daily.csv", index=False)
 btc_h.to_csv(OUT / "btc_hourly.csv", index=False)
+divs.to_csv(OUT / "dividends.csv", index=False)
 print(f"\n代币小时线：{len(tok):,} 行，{tok.ts_utc.min():%Y-%m-%d} 到 {tok.ts_utc.max():%Y-%m-%d}")
 print(f"股票小时线：{len(stock_h):,} 行；股票日线：{len(stock_d):,} 行")
 print(f"已保存到 {OUT.relative_to(REPO)}")
