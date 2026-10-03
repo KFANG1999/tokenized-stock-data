@@ -1,0 +1,41 @@
+# 每 10 分钟在云端采集一次股票代币价格，结果提交回本仓库的 data/ 目录
+name: collect
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # UTC 时间；GitHub 高峰期可能延迟几分钟
+  workflow_dispatch:          # 允许在网页上手动点击运行
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Collect snapshot
+        run: python collector/collect.py
+
+      - name: Commit data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data collector/address-cache.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          for i in 1 2 3; do
+            git pull --rebase && git push && exit 0
+            sleep 5
+          done
+          exit 1
